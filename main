@@ -1,0 +1,71 @@
+import pandas as pd
+import numpy as np
+df=pd.read_excel('name.xlsx') 
+def norm(data): 
+    return (data-np.min(data))/(np.max(data)-np.min(data))
+
+def create_seq(data,win,stride): 
+    data=np.array(data).flatten()
+    X=[]
+    for i in range((len(data)-win)//stride):
+        X.append(list(data[i*stride:i*stride+win]))
+    return X
+X=[]
+y=[]
+for i in range(6):
+    data=create_seq(df[df.columns[1+i*3]],500,50)
+    y+=[i]*len(data)
+    X+=data
+X=np.array(X)
+y=np.array(y)
+X.shape
+from tensorflow.python.keras.utils.np_utils import to_categorical
+y = to_categorical(y,num_classes=6)
+from sklearn.model_selection import train_test_split
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,shuffle=True,random_state=321)
+from sklearn.metrics import r2_score,mean_absolute_error,mean_squared_error  
+from keras.layers import LSTM,Input,Conv1D,Flatten,Dense,Bidirectional,Dropout                                               
+from keras.models import *                                          
+import pandas as pd                                                 
+import numpy as np                                                  
+from keras.layers import Activation
+from tensorflow.keras.optimizers import Adam
+def cnnlstm():
+
+    inputs = Input(shape=(500, 1))                         
+    cnn = Conv1D(16, 3, strides=2, padding='same',activation='relu')(inputs)
+    cnn = Conv1D(32, 3, strides=2, padding='same',activation='relu')(cnn)
+    cnn = Conv1D(64, 3, strides=2, padding='same',activation='relu')(cnn)
+    lstm_out = LSTM(128)(cnn)                       
+    lstm_out = Dropout(0.5)(lstm_out)                                        
+    output = Dense(64,activation='relu')(lstm_out)                                            
+    output = Dense(32,activation='relu')(output)  
+    output = Dense(6,activation='softmax')(output) 
+    model = Model(inputs=[inputs], outputs=output)                          
+    return model
+model=cnnlstm()
+from keras.callbacks import ModelCheckpoint
+adam = Adam(lr=1e-4)
+
+model.compile(optimizer = adam,
+              loss = 'categorical_crossentropy',
+              metrics = ['accuracy'])
+
+print('Training------------Begin!!!')
+
+cp = ModelCheckpoint(filepath="cnnlstm1.h5",  
+                               save_best_only=True,
+                               verbose=1)
+
+
+model_history = model.fit(X_train, y_train, epochs=30, 
+                                batch_size=32, 
+                                validation_data=(X_test, y_test),
+                                verbose=1, callbacks=[cp]).history
+
+print('\nTesting----------Begin!!!')
+
+loss, accuracy = model.evaluate(X_test, y_test)
+
+print('\ntest loss: ', loss)
+print('\ntest accuracy: ', accuracy)
